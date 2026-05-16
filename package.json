@@ -1,0 +1,19 @@
+{
+  "name": "studypuls-local-mvp",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Local StudyPuls dashboard MVP for HRV-based study analytics.",
+  "type": "module",
+  "scripts": {
+    "db:down": "docker compose down",
+    "db:logs": "docker compose logs -f mysql",
+    "db:shell": "docker compose exec mysql mysql -u studypuls_admin -p studypuls",
+    "db:up": "docker compose up -d mysql",
+    "dev": "node src/server.js",
+    "start": "node src/server.js",
+    "test": "node --test"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}

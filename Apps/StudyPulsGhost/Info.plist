@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<key>NSHealthShareUsageDescription</key>
+	<string>StudyPuls가 HRV와 심박수로 학습 컨디션을 분석합니다.</string>
+	<key>NSHealthUpdateUsageDescription</key>
+	<string>StudyPuls가 HealthKit 권한 상태를 관리합니다.</string>
+</dict>
+</plist>

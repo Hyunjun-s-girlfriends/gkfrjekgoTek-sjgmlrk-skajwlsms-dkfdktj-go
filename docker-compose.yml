@@ -1,0 +1,26 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: studypuls-mysql
+    restart: unless-stopped
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    environment:
+      MYSQL_ROOT_PASSWORD: "${MYSQL_ROOT_PASSWORD}"
+      MYSQL_DATABASE: "${MYSQL_DATABASE:-studypuls}"
+      MYSQL_ADMIN_USER: "${MYSQL_ADMIN_USER:-studypuls_admin}"
+      MYSQL_ADMIN_PASSWORD: "${MYSQL_ADMIN_PASSWORD}"
+      MYSQL_APP_USER: "${MYSQL_APP_USER:-studypuls_app}"
+      MYSQL_APP_PASSWORD: "${MYSQL_APP_PASSWORD}"
+    volumes:
+      - studypuls_mysql_data:/var/lib/mysql
+      - ./schema/mysql.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./docker/mysql/02-users.sh:/docker-entrypoint-initdb.d/02-users.sh:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-uroot", "-p${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  studypuls_mysql_data:

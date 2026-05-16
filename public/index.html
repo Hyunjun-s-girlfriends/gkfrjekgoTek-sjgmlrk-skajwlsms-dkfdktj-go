@@ -1,0 +1,119 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>StudyPuls</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <aside class="sidebar">
+      <div class="brand">
+        <span class="pulse-dot"></span>
+        <strong>StudyPuls</strong>
+      </div>
+      <nav>
+        <a href="#dashboard" class="active">Dashboard</a>
+        <a href="#sessions">Timer</a>
+        <a href="#ai">AI</a>
+        <a href="#group">Group</a>
+      </nav>
+      <button id="seedButton" class="ghost-button">데모 데이터 초기화</button>
+    </aside>
+
+    <main class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Local MVP</p>
+          <h1>학습 컨디션 대시보드</h1>
+        </div>
+        <div class="profile" id="profile"></div>
+      </header>
+
+      <section id="dashboard" class="metrics-grid"></section>
+
+      <section class="workspace-grid">
+        <article class="panel chart-panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Optimal Arousal</p>
+              <h2>시간대별 집중도</h2>
+            </div>
+            <span id="bestHourBadge" class="badge"></span>
+          </div>
+          <canvas id="focusChart" width="960" height="360"></canvas>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Stress & HRV</p>
+              <h2>최근 생체 지표</h2>
+            </div>
+          </div>
+          <div id="stressList" class="stress-list"></div>
+        </article>
+      </section>
+
+      <section id="sessions" class="workspace-grid">
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Subject Timer</p>
+              <h2>과목별 타이머</h2>
+            </div>
+          </div>
+          <form id="timerForm" class="control-row">
+            <select id="subjectSelect"></select>
+            <button type="submit">시작</button>
+            <button type="button" id="endSessionButton" class="secondary">종료</button>
+          </form>
+          <div id="currentSession" class="current-session"></div>
+        </article>
+
+        <article class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Ghost Watch App</p>
+              <h2>HRV 샘플 전송</h2>
+            </div>
+          </div>
+          <form id="healthForm" class="sample-form">
+            <label>심박수<input id="heartRateInput" type="number" value="82" min="40" max="180"></label>
+            <label>HRV<input id="hrvInput" type="number" value="48" min="10" max="120"></label>
+            <button type="submit">전송</button>
+          </form>
+        </article>
+      </section>
+
+      <section class="workspace-grid">
+        <article id="ai" class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">AI Report</p>
+              <h2>분석과 추천</h2>
+            </div>
+          </div>
+          <div id="aiReport" class="ai-report"></div>
+          <form id="chatForm" class="chat-form">
+            <input id="chatInput" placeholder="내일 계획 짜줘">
+            <button type="submit">전송</button>
+          </form>
+          <p id="chatReply" class="chat-reply"></p>
+        </article>
+
+        <article id="group" class="panel">
+          <div class="panel-heading">
+            <div>
+              <p class="eyebrow">Group Ranking</p>
+              <h2>그룹 랭킹</h2>
+            </div>
+          </div>
+          <div id="rankingList" class="ranking-list"></div>
+        </article>
+      </section>
+    </main>
+
+    <script src="/app.js" type="module"></script>
+  </body>
+</html>
