@@ -434,6 +434,14 @@ export async function receiveHealthSample({ sessionId, heartRate, hrv, timestamp
     error.status = 400;
     throw error;
   }
+  const duplicate = state.healthSamples.find((sample) =>
+    sample.sessionId === activeSessionId &&
+    sample.timestamp === timestamp &&
+    Number(sample.heartRate) === Number(heartRate) &&
+    Number(sample.hrv) === Number(hrv)
+  );
+  if (duplicate) return duplicate;
+
   const sample = {
     id: id("health"),
     sessionId: activeSessionId,

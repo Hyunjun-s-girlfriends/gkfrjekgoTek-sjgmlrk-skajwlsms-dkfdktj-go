@@ -49,8 +49,9 @@ docker compose up -d mysql
 
 ## 다음 연결 지점
 
-- Swift/HealthKit 유령 앱에서 `/api/health/hrv-bridge`로 `sessionId`, `heartRate`, `hrv`, `timestamp` 전송
-- `Apps/StudyPulsGhost`는 HealthKit HRV를 경유 전송하는 유령 앱 코드입니다.
+- iPhone 유령 앱에서 HealthKit의 Apple Watch HRV/심박 샘플을 읽어 `/api/health/hrv-bridge`로 `heartRate`, `hrv`, `timestamp` 전송
+- Mac 앱 설정 탭의 `iPhone 앱 서버 주소`를 Ghost 앱에 입력해야 합니다. `127.0.0.1`은 iPhone 자신을 가리키므로 Mac 서버 주소로 사용할 수 없습니다.
+- `Apps/StudyPulsGhost`는 실제 HealthKit HRV를 자동 전송하는 유령 앱 코드입니다.
 - `Apps/StudyPulsDashboard`는 맥북에 설치해서 실행할 SwiftUI 대시보드입니다.
 - 실제 OpenAI API 연결 시 `/api/ai/report`, `/api/ai/recommend`, `/api/ai/chat` 내부 로직 교체
 - MySQL 사용 시 `schema/mysql.sql` 기준으로 테이블 생성 후 `src/store.js`를 DB 어댑터로 교체

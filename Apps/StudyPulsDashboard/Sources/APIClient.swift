@@ -10,8 +10,6 @@ final class DashboardModel: ObservableObject {
     @Published var ranking: RankingResponse?
     @Published var devices: [DeviceStatus] = []
     @Published var selectedSubjectId = "subject_math"
-    @Published var heartRate = 82.0
-    @Published var hrv = 48.0
     @Published var errorMessage: String?
     @Published var isLoading = false
 
@@ -59,19 +57,6 @@ final class DashboardModel: ObservableObject {
         do {
             try await LocalServerManager.shared.ensureRunning()
             let _: StudySession = try await client.post("/api/study/end", body: [:])
-            await refresh()
-        } catch {
-            errorMessage = error.localizedDescription
-        }
-    }
-
-    func sendSample() async {
-        do {
-            try await LocalServerManager.shared.ensureRunning()
-            let _: StressSample = try await client.post(
-                "/api/health/heart-rate",
-                body: ["heartRate": Int(heartRate), "hrv": Int(hrv)]
-            )
             await refresh()
         } catch {
             errorMessage = error.localizedDescription

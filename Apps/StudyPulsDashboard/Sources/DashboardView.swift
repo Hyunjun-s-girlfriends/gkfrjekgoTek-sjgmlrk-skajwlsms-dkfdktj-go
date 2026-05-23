@@ -593,6 +593,7 @@ struct DeviceConnectionPanel: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .fixedSize(horizontal: false, vertical: true)
+                InfoBlock(title: "iPhone 앱 서버 주소", text: LocalNetworkInfo.bridgeURL())
                 Button {
                     Task { await model.connectWatchBridge() }
                 } label: {
@@ -773,21 +774,10 @@ struct TimerPanel: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
 
-            VStack(alignment: .leading, spacing: 8) {
-                VStack(alignment: .leading) {
-                    Text("심박수 \(Int(model.heartRate))")
-                        .font(.caption.bold())
-                    Slider(value: $model.heartRate, in: 45...180, step: 1)
-                }
-                VStack(alignment: .leading) {
-                    Text("HRV \(Int(model.hrv))")
-                        .font(.caption.bold())
-                    Slider(value: $model.hrv, in: 10...120, step: 1)
-                }
-            }
-
-            Button("유령 앱 샘플 수신 테스트") {
-                Task { await model.sendSample() }
+            if let latest = model.stress.last {
+                InfoBlock(title: "최근 Watch HRV", text: "HR \(latest.heartRate) · HRV \(latest.hrv) · 스트레스 \(latest.stress)")
+            } else {
+                InfoBlock(title: "Watch HRV 대기", text: "iPhone 유령 앱에서 Apple Watch HRV가 들어오면 자동으로 스트레스가 계산됩니다.")
             }
         }
         .frame(maxWidth: .infinity, alignment: .topLeading)
