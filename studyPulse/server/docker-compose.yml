@@ -1,0 +1,44 @@
+services:
+
+  # ── MySQL 8.0 ──────────────────────────────────
+  mysql:
+    image: mysql:8.0
+    container_name: studypuls-db
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      MYSQL_DATABASE:      ${MYSQL_DATABASE}
+      MYSQL_USER:          ${MYSQL_APP_USER}
+      MYSQL_PASSWORD:      ${MYSQL_APP_PASSWORD}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./mysql-init/00-admin-user.sql:/docker-entrypoint-initdb.d/00-admin-user.sql
+      - ./schema.sql:/docker-entrypoint-initdb.d/01-schema.sql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost",
+             "-u", "root", "--password=${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # ── Node.js 앱 ─────────────────────────────────
+  app:
+    build:
+      context: ..            # 프로젝트 루트 (public/ 포함)
+      dockerfile: server/Dockerfile
+    container_name: studypuls-app
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      MYSQL_HOST: mysql      # 컨테이너 내부에서는 서비스명으로 접속
+    ports:
+      - "${PORT:-3000}:3000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+volumes:
+  mysql_data:

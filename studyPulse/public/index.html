@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudyPulse</title>
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- PWA -->
+  <link rel="manifest" href="/manifest.json" />
+  <meta name="theme-color" content="#007AFF" />
+  <meta name="mobile-web-app-capable" content="yes" />
+
+  <!-- iOS 홈 화면 설치 -->
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="StudyPulse" />
+  <link rel="apple-touch-icon" href="/icons/icon-192.png" />
+</head>
+<body>
+
+<!-- ══════════════════════════════════════════
+     로그인 화면
+══════════════════════════════════════════ -->
+<div id="login-screen">
+  <div class="login-card">
+    <div class="login-logo"><div class="logo-icon">🌿</div></div>
+    <h1 class="login-title">StudyPulse</h1>
+    <p class="login-sub">AI 기반 통합 학습 분석 플랫폼</p>
+    <div class="login-features">
+      <div class="feature-row"><span class="feature-dot" style="background:#30D158"></span>Apple Watch HRV 실시간 분석</div>
+      <div class="feature-row"><span class="feature-dot" style="background:#007AFF"></span>공부 효율 시각화 &amp; AI 피드백</div>
+      <div class="feature-row"><span class="feature-dot" style="background:#AF52DE"></span>그룹 학습 &amp; 랭킹 시스템</div>
+      <div class="feature-row"><span class="feature-dot" style="background:#FF9500"></span>게임화된 성장 시스템</div>
+    </div>
+    <button class="btn-google" id="btn-google-login">
+      <svg width="18" height="18" viewBox="0 0 24 24"><path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg>
+      Google로 계속하기
+    </button>
+    <div class="divider"><span>테스트 계정으로 시작</span></div>
+    <div class="dev-login-row">
+      <input type="text" id="dev-name" placeholder="닉네임" value="테스트유저" class="dev-input" />
+      <button class="btn-dev" id="btn-dev-login">로그인</button>
+    </div>
+    <p class="login-hint">서버가 실행 중이어야 합니다 (npm run dev)</p>
+  </div>
+</div>
+
+<!-- ══════════════════════════════════════════
+     메인 앱 — 사이드바 레이아웃
+══════════════════════════════════════════ -->
+<div id="app" hidden>
+<div class="app-shell">
+
+  <!-- ── 사이드바 ── -->
+  <aside class="sidebar">
+    <!-- 타이틀바 영역 (traffic lights) -->
+    <div class="sidebar-titlebar">
+      <div class="window-dots">
+        <span class="dot dot-red"></span>
+        <span class="dot dot-yellow"></span>
+        <span class="dot dot-green"></span>
+      </div>
+    </div>
+
+    <!-- 앱 아이콘 + 이름 -->
+    <div class="sidebar-brand">
+      <div class="sidebar-app-icon">🌿</div>
+      <span class="sidebar-app-name">StudyPulse</span>
+    </div>
+
+    <!-- 내비게이션 -->
+    <nav class="sidebar-nav">
+      <div class="nav-section-label">학습</div>
+      <button class="nav-item active" data-tab="dashboard">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/><rect x="14" y="14" width="7" height="7"/></svg>
+        </span>
+        <span class="nav-label">대시보드</span>
+        <span class="nav-badge" id="nav-badge-timer" hidden></span>
+      </button>
+      <button class="nav-item" data-tab="analytics">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+        </span>
+        <span class="nav-label">과목별 공부시간</span>
+      </button>
+
+      <button class="nav-item" data-tab="ai">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        </span>
+        <span class="nav-label">AI 어시스턴트</span>
+      </button>
+
+      <div class="nav-section-label" style="margin-top:8px">커뮤니티</div>
+      <button class="nav-item" data-tab="group">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+        </span>
+        <span class="nav-label">그룹</span>
+      </button>
+      <button class="nav-item" data-tab="ranking">
+        <span class="nav-icon">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><polyline points="18 20 18 10"/><polyline points="12 20 12 4"/><polyline points="6 20 6 14"/></svg>
+        </span>
+        <span class="nav-label">랭킹</span>
+      </button>
+    </nav>
+
+    <!-- 하단: HRV + 프로필 -->
+    <div class="sidebar-bottom">
+      <div class="hrv-row" id="hrv-badge" title="실시간 심박수">
+        <span class="hrv-dot" id="hrv-dot"></span>
+        <span class="hrv-label" id="hrv-value">-- BPM</span>
+      </div>
+      <button class="sidebar-profile-btn" id="user-avatar">
+        <div class="sidebar-avatar" id="sidebar-avatar-circle">?</div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebar-user-name">-</div>
+          <div class="sidebar-user-level" id="sidebar-user-level">Lv.1 · 새싹</div>
+        </div>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--text-3);flex-shrink:0"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg>
+      </button>
+    </div>
+  </aside>
+
+  <!-- ── 메인 콘텐츠 ── -->
+  <div class="main-area">
+
+    <!-- 오른쪽 타이틀바 (알림) -->
+    <div class="main-titlebar">
+      <div class="main-page-title" id="main-page-title">대시보드</div>
+      <button class="titlebar-icon-btn" title="알림">
+        <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+      </button>
+    </div>
+
+    <!-- 탭 콘텐츠 -->
+    <div class="main-content">
+
+      <!-- ── 대시보드 ── -->
+      <div class="tab-content active" id="tab-dashboard">
+        <div class="dashboard-layout">
+          <section class="panel timer-panel">
+            <div class="panel-header">
+              <span class="panel-title">과목별 타이머</span>
+              <button class="btn-add-subject" id="btn-add-subject">+ 과목 추가</button>
+            </div>
+            <div class="timer-list" id="timer-grid">
+              <div class="timer-empty">
+                <div class="timer-empty-icon">📚</div>
+                <div>과목을 추가해 타이머를 시작하세요</div>
+              </div>
+            </div>
+          </section>
+
+          <div class="right-col">
+            <!-- 나의 성장 -->
+            <section class="panel growth-panel">
+              <div class="panel-header"><span class="panel-title">나의 성장</span></div>
+              <div class="growth-body">
+                <div class="growth-left">
+                  <div class="growth-level-name" id="plant-level">새싹</div>
+                  <div class="growth-px" id="plant-px">0 PX</div>
+                  <div class="growth-progress-wrap">
+                    <div class="growth-progress-labels">
+                      <span>다음 단계</span>
+                      <span id="plant-progress-label">100 PX 남음</span>
+                    </div>
+                    <div class="growth-progress-bar">
+                      <div class="growth-progress-fill" id="plant-progress" style="width:0%"></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="growth-plant" id="plant-emoji">🌱</div>
+              </div>
+            </section>
+
+            <!-- 일일 미션 -->
+            <section class="panel mission-panel">
+              <div class="panel-header">
+                <span class="panel-title">일일 미션</span>
+                <span class="mission-count-badge" id="mission-count-badge">0/0</span>
+              </div>
+              <div class="mission-list" id="mission-list">
+                <div class="loading-row">불러오는 중...</div>
+              </div>
+            </section>
+
+            <!-- 오늘의 통계 -->
+            <section class="panel stats-panel">
+              <div class="panel-header"><span class="panel-title">오늘의 통계</span></div>
+              <div class="stats-list">
+                <div class="stat-row">
+                  <span class="stat-label">총 공부 시간</span>
+                  <span class="stat-value" id="stat-study-time">00:00:00</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">완료 미션</span>
+                  <span class="stat-value" id="stat-missions">0/0</span>
+                </div>
+                <div class="stat-row">
+                  <span class="stat-label">활성 과목</span>
+                  <span class="stat-value" id="stat-subjects">0/10</span>
+                </div>
+              </div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 그룹 ── -->
+      <div class="tab-content" id="tab-group" hidden>
+        <div id="group-no-group">
+          <div class="group-find-layout">
+            <section class="panel" style="flex:1">
+              <div class="panel-header"><span class="panel-title">그룹 찾기</span></div>
+              <div class="search-bar">
+                <input type="text" id="group-search-input" placeholder="그룹 이름 검색..." class="search-input" />
+                <button class="btn-search" id="btn-search-group">검색</button>
+              </div>
+              <div id="group-search-results" class="group-card-list"></div>
+              <button class="btn-create-new" id="btn-show-create">+ 새 그룹 만들기</button>
+            </section>
+            <section class="panel" style="flex:1">
+              <div class="panel-header"><span class="panel-title">추천 그룹</span></div>
+              <div id="group-recommended" class="group-card-list"></div>
+            </section>
+          </div>
+        </div>
+
+        <div id="group-has-group" hidden>
+          <div class="group-detail-layout">
+            <section class="panel" style="width:280px;flex-shrink:0;display:flex;flex-direction:column">
+              <div class="panel-header">
+                <span class="panel-title">순위표</span>
+                <span class="badge-active" id="group-member-count">0명 공부중</span>
+              </div>
+              <div id="group-ranking-list" class="ranking-list"></div>
+            </section>
+            <div style="flex:1;display:flex;flex-direction:column;gap:12px;min-width:0">
+              <section class="panel group-info-panel">
+                <div class="group-info-header">
+                  <div>
+                    <div class="panel-title" id="group-name-title">그룹명</div>
+                    <div class="group-info-meta" id="group-info-meta">0 / 8 명</div>
+                  </div>
+                  <div style="display:flex;align-items:center;gap:8px">
+                    <span class="badge-rank" id="group-rank-badge">랭킹 -위</span>
+                    <button class="btn-leave" id="btn-leave-group">나가기</button>
+                  </div>
+                </div>
+                <div class="activity-section">
+                  <div class="activity-header">
+                    <span class="activity-title" id="activity-month-label">활동</span>
+                  </div>
+                  <div class="activity-cal" id="activity-cal"></div>
+                </div>
+                <div class="mission-list" id="group-missions" style="margin-top:12px"></div>
+              </section>
+              <section class="panel chat-panel">
+                <div class="panel-header">
+                  <span class="panel-title">그룹 채팅</span>
+                  <span class="badge-clear" id="group-clear-count">클리어 0회</span>
+                </div>
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-input-row">
+                  <input type="text" id="chat-input" placeholder="메시지 입력..." class="chat-input" />
+                  <button class="btn-send-circle" id="btn-send-chat">
+                    <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+                  </button>
+                </div>
+              </section>
+            </div>
+          </div>
+        </div>
+
+        <!-- 그룹 생성 모달 -->
+        <div class="modal-overlay" id="create-group-modal" hidden>
+          <div class="modal modal-create">
+            <div class="modal-left">
+              <div class="modal-back-row">
+                <button class="btn-back" id="btn-close-create">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                  기본 설정
+                </button>
+                <p class="modal-sub">그룹 이름과 아이콘을 설정하여 그룹을 만들어보세요</p>
+              </div>
+              <div class="form-group">
+                <label class="form-label">그룹 이름 <span class="char-count" id="name-char">0/20</span></label>
+                <input type="text" id="create-group-name" placeholder="그룹 이름을 입력하세요" class="form-input" maxlength="20" />
+              </div>
+              <div class="form-group">
+                <label class="form-label">그룹 설명 <span class="char-count" id="desc-char">0/100</span></label>
+                <textarea id="create-group-desc" placeholder="그룹 설명을 입력하세요" class="form-input form-textarea" rows="3" maxlength="100"></textarea>
+              </div>
+              <div class="form-group">
+                <label class="form-label">아이콘</label>
+                <div class="icon-picker" id="icon-picker">
+                  <span class="icon-opt selected" data-icon="📚">📚</span>
+                  <span class="icon-opt" data-icon="💻">💻</span>
+                  <span class="icon-opt" data-icon="🧮">🧮</span>
+                  <span class="icon-opt" data-icon="🔬">🔬</span>
+                  <span class="icon-opt" data-icon="🎯">🎯</span>
+                  <span class="icon-opt" data-icon="⚡">⚡</span>
+                  <span class="icon-opt" data-icon="🏆">🏆</span>
+                  <span class="icon-opt" data-icon="🌟">🌟</span>
+                </div>
+              </div>
+              <div class="form-group">
+                <label class="form-label">색상</label>
+                <div class="color-picker" id="color-picker">
+                  <span class="color-opt selected" data-color="#30D158" style="background:#30D158"></span>
+                  <span class="color-opt" data-color="#007AFF" style="background:#007AFF"></span>
+                  <span class="color-opt" data-color="#FF3B30" style="background:#FF3B30"></span>
+                  <span class="color-opt" data-color="#FF9500" style="background:#FF9500"></span>
+                  <span class="color-opt" data-color="#AF52DE" style="background:#AF52DE"></span>
+                  <span class="color-opt" data-color="#FF2D55" style="background:#FF2D55"></span>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-group" style="flex:1">
+                  <label class="form-label">최대 인원</label>
+                  <input type="number" id="create-group-max" class="form-input" value="8" min="2" max="8" />
+                </div>
+                <div class="form-group" style="flex:2">
+                  <label class="form-label">공개 여부</label>
+                  <div class="radio-group">
+                    <label class="radio-label"><input type="radio" name="privacy" value="public" checked /><span>공개</span><small>누구나 참여 가능</small></label>
+                    <label class="radio-label"><input type="radio" name="privacy" value="private" /><span>비공개</span><small>초대로만 가입</small></label>
+                  </div>
+                </div>
+              </div>
+              <button class="btn-create-submit" id="btn-create-group">생성하기</button>
+            </div>
+            <div class="modal-right">
+              <div class="preview-label">그룹 미리보기</div>
+              <div class="group-preview-card">
+                <div class="preview-icon" id="preview-icon">📚</div>
+                <div class="preview-name" id="preview-name">그룹 이름</div>
+                <div class="preview-desc" id="preview-desc">그룹 설명</div>
+                <div class="preview-meta" id="preview-meta">최대 인원 8명</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── 랭킹 ── -->
+      <div class="tab-content" id="tab-ranking" hidden>
+        <div class="ranking-layout">
+          <div class="ranking-header-card">
+            <div class="my-rank-section">
+              <div class="my-rank-num" id="my-rank-num">#-</div>
+              <div>
+                <div class="my-rank-name" id="my-rank-name">-</div>
+                <div class="my-rank-sub" id="my-rank-sub">Lv.1 · 0 PX</div>
+              </div>
+            </div>
+            <div class="rank-type-tabs">
+              <button class="rank-type-tab active" data-rtab="personal">개인 랭킹</button>
+              <button class="rank-type-tab" data-rtab="group">그룹 랭킹</button>
+            </div>
+          </div>
+          <section class="panel">
+            <div id="personal-ranking-list" class="ranking-list"></div>
+            <div id="group-ranking-global-list" class="ranking-list" hidden></div>
+          </section>
+        </div>
+      </div>
+
+      <!-- ── 분석 ── -->
+      <div class="tab-content" id="tab-analytics" hidden>
+        <div class="analytics-layout">
+          <section class="panel">
+            <div class="panel-header">
+              <span class="panel-title">주간 스트레스 지수</span>
+              <span class="badge-hrv">HRV</span>
+            </div>
+            <div class="chart-wrap">
+              <canvas id="chart-weekly-stress" height="160"></canvas>
+              <div class="chart-empty" id="chart-stress-empty">HRV 데이터 없음 — Apple Watch 연동 후 표시됩니다</div>
+            </div>
+          </section>
+          <div class="analytics-row">
+            <section class="panel" style="flex:1">
+              <div class="panel-header"><span class="panel-title">시간대별 집중도</span></div>
+              <div class="chart-wrap">
+                <canvas id="chart-focus" height="140"></canvas>
+                <div class="chart-empty" id="chart-focus-empty">데이터 없음</div>
+              </div>
+            </section>
+            <section class="panel" style="flex:1">
+              <div class="panel-header"><span class="panel-title">이번 달 과목별 시간</span></div>
+              <div id="subject-bars" class="subject-bars"></div>
+            </section>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── AI ── -->
+      <div class="tab-content" id="tab-ai" hidden>
+        <div class="ai-layout">
+          <section class="panel ai-chat-panel">
+            <div class="ai-bot-header">
+              <div class="ai-bot-icon">🤖</div>
+              <div>
+                <div class="ai-bot-title">AI 학습 어시스턴트</div>
+                <div class="ai-bot-sub">학습도우미</div>
+              </div>
+              <button class="btn-analyze-sm" id="btn-analyze">✨ 분석 리포트</button>
+            </div>
+            <div class="ai-analysis-box" id="ai-analysis-result" hidden>
+              <div class="ai-analysis-content" id="ai-analysis-text"></div>
+            </div>
+            <div class="chat-messages ai-chat-messages" id="ai-chat-messages">
+              <div class="ai-welcome-bubble">
+                <div class="chat-bubble other">안녕하세요! 학습을 도와드릴 AI 어시스턴트입니다. 무엇이든 물어보세요 📚</div>
+              </div>
+            </div>
+            <div class="chat-input-row" style="margin-top:12px">
+              <input type="text" id="ai-chat-input" placeholder="메시지를 입력하세요..." class="chat-input" />
+              <button class="btn-send-circle" id="btn-ai-send">
+                <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/></svg>
+              </button>
+            </div>
+          </section>
+          <section class="panel ai-questions-panel">
+            <div class="panel-title" style="margin-bottom:16px">추천 질문</div>
+            <div class="suggested-questions" id="suggested-questions">
+              <button class="sq-btn" data-q="오늘 공부 효율을 높이는 방법은?">오늘 공부 효율을 높이는 방법은?</button>
+              <button class="sq-btn" data-q="집중력이 떨어질 때 어떻게 해야 하나요?">집중력이 떨어질 때 어떻게 해야 하나요?</button>
+              <button class="sq-btn" data-q="좋은 공부 루틴 만드는 법 알려줘">좋은 공부 루틴 만드는 법 알려줘</button>
+              <button class="sq-btn" data-q="스트레스를 줄이면서 공부하는 방법은?">스트레스를 줄이면서 공부하는 방법은?</button>
+              <button class="sq-btn" data-q="지금 내 공부 시간 분석해줘">지금 내 공부 시간 분석해줘</button>
+              <button class="sq-btn" data-q="내일 공부 계획 추천해줘">내일 공부 계획 추천해줘</button>
+            </div>
+          </section>
+        </div>
+      </div>
+
+    </div><!-- /main-content -->
+  </div><!-- /main-area -->
+</div><!-- /app-shell -->
+</div><!-- /app -->
+
+<!-- 과목 추가 모달 -->
+<div class="modal-overlay" id="add-subject-modal" hidden>
+  <div class="modal modal-sm">
+    <div class="modal-header-sm">
+      <span class="modal-title-sm">과목 추가</span>
+      <button class="modal-close" id="btn-close-subject-modal">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+      </button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">과목 이름</label>
+        <input type="text" id="new-subject-name" placeholder="예: 수학" class="form-input" />
+      </div>
+      <div class="form-group">
+        <label class="form-label">색상</label>
+        <div class="color-picker" id="subject-color-picker">
+          <span class="color-opt selected" data-color="#007AFF" style="background:#007AFF"></span>
+          <span class="color-opt" data-color="#30D158" style="background:#30D158"></span>
+          <span class="color-opt" data-color="#FF3B30" style="background:#FF3B30"></span>
+          <span class="color-opt" data-color="#FF9500" style="background:#FF9500"></span>
+          <span class="color-opt" data-color="#AF52DE" style="background:#AF52DE"></span>
+          <span class="color-opt" data-color="#FF2D55" style="background:#FF2D55"></span>
+          <span class="color-opt" data-color="#5AC8FA" style="background:#5AC8FA"></span>
+          <span class="color-opt" data-color="#FFCC00" style="background:#FFCC00"></span>
+        </div>
+      </div>
+      <button class="btn-create-submit" id="btn-confirm-add-subject">추가하기</button>
+    </div>
+  </div>
+</div>
+
+<!-- 프로필 패널 -->
+<div class="profile-overlay" id="profile-overlay"></div>
+<aside class="profile-panel" id="profile-panel">
+  <div class="profile-panel-top">
+    <button class="profile-close-btn" id="btn-close-profile">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+    <div class="profile-avatar-xl" id="profile-avatar-xl">?</div>
+    <div class="profile-name-area">
+      <div class="profile-display-name" id="profile-display-name">-</div>
+      <div class="profile-badges">
+        <span class="profile-level-badge" id="profile-level-badge">Lv.1</span>
+        <span class="profile-streak-badge" id="profile-streak-badge">🔥 1일 연속</span>
+      </div>
+      <div class="profile-org-text" id="profile-org-text"></div>
+      <div class="profile-desc-text" id="profile-desc-text"></div>
+    </div>
+  </div>
+  <div class="profile-stats-row">
+    <div class="profile-stat-cell"><div class="profile-stat-value" id="pstat-px">0</div><div class="profile-stat-label">총 PX</div></div>
+    <div class="profile-stat-divider"></div>
+    <div class="profile-stat-cell"><div class="profile-stat-value" id="pstat-streak">0</div><div class="profile-stat-label">연속 접속</div></div>
+    <div class="profile-stat-divider"></div>
+    <div class="profile-stat-cell"><div class="profile-stat-value" id="pstat-max-streak">0</div><div class="profile-stat-label">최고 연속</div></div>
+  </div>
+  <div class="profile-section">
+    <div class="profile-section-header">
+      <span class="profile-section-title">최근 활동</span>
+      <span class="profile-section-sub" id="profile-cal-label"></span>
+    </div>
+    <div class="profile-cal-wrap">
+      <div class="activity-cal profile-cal" id="profile-activity-cal"></div>
+      <div class="profile-cal-legend">
+        <span>적음</span>
+        <span class="cal-legend-cell"></span><span class="cal-legend-cell lv1"></span>
+        <span class="cal-legend-cell lv2"></span><span class="cal-legend-cell lv3"></span>
+        <span class="cal-legend-cell lv4"></span><span>많음</span>
+      </div>
+    </div>
+  </div>
+  <div class="profile-section">
+    <div class="profile-section-title">과목별 공부시간</div>
+    <div id="profile-subject-bars" class="profile-subject-bars"><div class="profile-empty-hint">공부 기록이 없어요</div></div>
+  </div>
+  <div class="profile-section">
+    <div class="profile-section-title">프로필 수정</div>
+    <div class="profile-edit-form">
+      <div class="form-group"><label class="form-label">이름</label><input type="text" id="profile-edit-name" class="form-input" placeholder="이름" /></div>
+      <div class="form-group"><label class="form-label">소속</label><input type="text" id="profile-edit-org" class="form-input" placeholder="학교, 회사 등" /></div>
+      <div class="form-group"><label class="form-label">한 줄 소개</label><textarea id="profile-edit-desc" class="form-input form-textarea" rows="2" placeholder="간단한 소개를 입력하세요"></textarea></div>
+      <button class="btn-create-submit" id="btn-save-profile">저장하기</button>
+    </div>
+  </div>
+  <div class="profile-bottom">
+    <button class="btn-logout" id="btn-logout">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+      로그아웃
+    </button>
+  </div>
+</aside>
+
+<!-- 토스트 -->
+<div id="toast" class="toast"></div>
+<script src="https://accounts.google.com/gsi/client" async defer></script>
+<script src="app.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('/sw.js').catch(() => {});
+  }
+</script>
+</body>
+</html>

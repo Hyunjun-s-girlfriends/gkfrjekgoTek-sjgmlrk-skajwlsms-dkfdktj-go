@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>StudyPulse Bridge</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:       #0d0d0f;
+      --surface:  #1a1a1f;
+      --surface2: #242429;
+      --border:   rgba(255,255,255,0.07);
+      --text1:    #f0f0f3;
+      --text2:    #8e8e99;
+      --text3:    #55555f;
+      --green:    #30d158;
+      --red:      #ff453a;
+      --yellow:   #ffd60a;
+      --blue:     #0a84ff;
+      --purple:   #bf5af2;
+    }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Display', sans-serif;
+      background: var(--bg);
+      color: var(--text1);
+      min-height: 100vh;
+      padding: 32px 24px;
+    }
+
+    /* ── 헤더 ── */
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 32px;
+    }
+    .header-icon {
+      width: 40px; height: 40px;
+      background: linear-gradient(135deg, var(--blue), var(--purple));
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      font-size: 20px;
+    }
+    .header-title { font-size: 22px; font-weight: 700; letter-spacing: -0.3px; }
+    .header-sub   { font-size: 13px; color: var(--text2); margin-top: 2px; }
+    .header-right { margin-left: auto; display: flex; align-items: center; gap: 10px; }
+    .server-url   { font-size: 12px; color: var(--text3); font-family: monospace; }
+
+    /* ── 연결 상태 배너 ── */
+    .status-banner {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 14px 20px;
+      border-radius: 14px;
+      border: 1px solid var(--border);
+      background: var(--surface);
+      margin-bottom: 24px;
+      transition: border-color .3s;
+    }
+    .status-banner.connected    { border-color: rgba(48,209,88,.35); }
+    .status-banner.disconnected { border-color: rgba(255,69,58,.25); }
+
+    .status-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+      background: var(--text3);
+      flex-shrink: 0;
+      position: relative;
+    }
+    .status-dot.on  { background: var(--green); }
+    .status-dot.off { background: var(--red); }
+    .status-dot.on::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border-radius: 50%;
+      border: 2px solid rgba(48,209,88,.4);
+      animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%,100% { opacity:1; transform:scale(1); }
+      50%      { opacity:0; transform:scale(1.5); }
+    }
+
+    .status-label  { font-size: 15px; font-weight: 600; }
+    .status-detail { font-size: 13px; color: var(--text2); }
+    .status-device { margin-left: auto; font-size: 12px; color: var(--text3); text-align: right; }
+
+    /* ── 그리드 ── */
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 900px) {
+      .grid   { grid-template-columns: 1fr 1fr; }
+      .grid-2 { grid-template-columns: 1fr; }
+    }
+    @media (max-width: 600px) {
+      .grid   { grid-template-columns: 1fr; }
+    }
+
+    /* ── 카드 ── */
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 20px;
+    }
+    .card-label {
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .7px;
+      color: var(--text2);
+      margin-bottom: 12px;
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    .card-label .dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+    }
+
+    /* ── 수치 카드 ── */
+    .metric-value {
+      font-size: 48px;
+      font-weight: 700;
+      letter-spacing: -2px;
+      line-height: 1;
+      margin-bottom: 4px;
+    }
+    .metric-unit  { font-size: 14px; color: var(--text2); }
+    .metric-sub   { font-size: 12px; color: var(--text3); margin-top: 8px; }
+
+    /* 스트레스 색상 */
+    .stress-low    { color: var(--green); }
+    .stress-mid    { color: var(--yellow); }
+    .stress-high   { color: var(--red); }
+
+    /* ── 세션 카드 ── */
+    .session-subject {
+      font-size: 22px;
+      font-weight: 700;
+      margin-bottom: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+    }
+    .session-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+      font-weight: 600;
+      padding: 3px 10px;
+      border-radius: 20px;
+      background: rgba(48,209,88,.15);
+      color: var(--green);
+    }
+    .session-badge.stopped {
+      background: rgba(142,142,153,.12);
+      color: var(--text2);
+    }
+    .session-dur {
+      font-size: 13px;
+      color: var(--text2);
+      margin-top: 10px;
+    }
+
+    /* ── 이벤트 로그 ── */
+    .log-list {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+      max-height: 340px;
+      overflow-y: auto;
+    }
+    .log-list::-webkit-scrollbar { width: 4px; }
+    .log-list::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+    .log-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      animation: fadein .3s ease;
+    }
+    .log-row:last-child { border-bottom: none; }
+    @keyframes fadein { from { opacity:0; transform:translateY(-4px); } to { opacity:1; } }
+
+    .log-type {
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      padding: 2px 7px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .log-type.hrv      { background: rgba(10,132,255,.2);  color: var(--blue); }
+    .log-type.session  { background: rgba(48,209,88,.15);  color: var(--green); }
+    .log-type.heartbt  { background: rgba(142,142,153,.12); color: var(--text2); }
+
+    .log-body  { flex: 1; min-width: 0; }
+    .log-msg   { font-size: 13px; }
+    .log-time  { font-size: 11px; color: var(--text3); margin-top: 2px; }
+
+    /* ── 엔드포인트 참고 ── */
+    .endpoint-table { width: 100%; border-collapse: collapse; font-size: 13px; }
+    .endpoint-table th {
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      text-transform: uppercase;
+      letter-spacing: .5px;
+      color: var(--text3);
+      padding: 0 0 10px;
+    }
+    .endpoint-table td { padding: 8px 0; border-top: 1px solid var(--border); vertical-align: top; }
+    .method {
+      font-size: 11px; font-weight: 700;
+      padding: 2px 7px; border-radius: 4px;
+      color: var(--green); background: rgba(48,209,88,.12);
+    }
+    .method.get  { color: var(--blue);   background: rgba(10,132,255,.12); }
+    .path-cell   { font-family: monospace; font-size: 12px; color: var(--text1); padding: 8px 16px 8px 10px; }
+    .desc-cell   { color: var(--text2); }
+    code {
+      font-family: monospace;
+      font-size: 12px;
+      background: var(--surface2);
+      padding: 2px 6px;
+      border-radius: 4px;
+      color: var(--text1);
+    }
+
+    .empty-hint {
+      color: var(--text3);
+      font-size: 13px;
+      padding: 20px 0;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 헤더 -->
+<div class="header">
+  <div class="header-icon">🔗</div>
+  <div>
+    <div class="header-title">StudyPulse Bridge</div>
+    <div class="header-sub">모바일 앱 → 서버 → 대시보드 실시간 데이터 연동</div>
+  </div>
+  <div class="header-right">
+    <span class="server-url" id="server-url"></span>
+  </div>
+</div>
+
+<!-- 연결 상태 배너 -->
+<div class="status-banner disconnected" id="status-banner">
+  <div class="status-dot off" id="status-dot"></div>
+  <div>
+    <div class="status-label" id="status-label">연결 대기 중</div>
+    <div class="status-detail" id="status-detail">모바일 앱에서 데이터를 보내면 표시됩니다</div>
+  </div>
+  <div class="status-device" id="status-device"></div>
+</div>
+
+<!-- HRV 수치 그리드 -->
+<div class="grid" style="margin-bottom:16px">
+  <div class="card">
+    <div class="card-label"><div class="dot" style="background:var(--red)"></div>심박수</div>
+    <div class="metric-value" id="val-hr" style="color:var(--red)">--</div>
+    <div class="metric-unit">BPM</div>
+    <div class="metric-sub" id="sub-hr">수신 대기 중</div>
+  </div>
+  <div class="card">
+    <div class="card-label"><div class="dot" style="background:var(--yellow)"></div>스트레스</div>
+    <div class="metric-value" id="val-stress">--</div>
+    <div class="metric-unit">/ 100</div>
+    <div class="metric-sub" id="sub-stress">낮을수록 좋음</div>
+  </div>
+  <div class="card">
+    <div class="card-label"><div class="dot" style="background:var(--blue)"></div>HRV (SDNN)</div>
+    <div class="metric-value" id="val-sdnn" style="color:var(--blue)">--</div>
+    <div class="metric-unit">ms</div>
+    <div class="metric-sub" id="sub-sdnn">높을수록 좋음</div>
+  </div>
+</div>
+
+<!-- 세션 + 로그 -->
+<div class="grid-2" style="margin-bottom:16px">
+  <!-- 현재 세션 -->
+  <div class="card">
+    <div class="card-label"><div class="dot" style="background:var(--green)"></div>공부 세션</div>
+    <div id="session-area">
+      <div class="empty-hint">세션 이벤트 없음</div>
+    </div>
+  </div>
+
+  <!-- 이벤트 로그 -->
+  <div class="card">
+    <div class="card-label"><div class="dot" style="background:var(--purple)"></div>이벤트 로그</div>
+    <div class="log-list" id="log-list">
+      <div class="empty-hint">이벤트 없음</div>
+    </div>
+  </div>
+</div>
+
+<!-- API 엔드포인트 참고 -->
+<div class="card">
+  <div class="card-label"><div class="dot" style="background:var(--text3)"></div>모바일 앱 연동 엔드포인트</div>
+  <table class="endpoint-table">
+    <thead>
+      <tr>
+        <th style="width:60px">Method</th>
+        <th style="width:220px">Path</th>
+        <th>설명 / 필수 파라미터</th>
+      </tr>
+    </thead>
+    <tbody>
+      <tr>
+        <td><span class="method">POST</span></td>
+        <td class="path-cell">/api/bridge/hrv</td>
+        <td class="desc-cell">HRV 데이터 전송. <code>userId</code> 또는 <code>token</code>, <code>heartRate</code>, <code>stressIndex</code>, <code>hrvSdnn</code></td>
+      </tr>
+      <tr>
+        <td><span class="method">POST</span></td>
+        <td class="path-cell">/api/bridge/session</td>
+        <td class="desc-cell">타이머 시작/종료. <code>event</code>: "start"|"stop", <code>subjectId</code>, <code>sessionId</code>(stop 시), <code>durationSeconds</code></td>
+      </tr>
+      <tr>
+        <td><span class="method">POST</span></td>
+        <td class="path-cell">/api/bridge/status</td>
+        <td class="desc-cell">기기 하트비트. <code>deviceModel</code>, <code>batteryLevel</code>, <code>appVersion</code></td>
+      </tr>
+      <tr>
+        <td><span class="method get">GET</span></td>
+        <td class="path-cell">/api/bridge/latest</td>
+        <td class="desc-cell">현재 상태 스냅샷 (Mac 대시보드 폴링용)</td>
+      </tr>
+      <tr>
+        <td><span class="method get">GET</span></td>
+        <td class="path-cell">/api/health/hrv-bridge</td>
+        <td class="desc-cell">기존 HRV 브리지 (하위 호환)</td>
+      </tr>
+    </tbody>
+  </table>
+</div>
+
+<script src="/socket.io/socket.io.js"></script>
+<script>
+  const serverURL = location.origin;
+  document.getElementById('server-url').textContent = serverURL;
+
+  /* ── 상태 렌더링 ── */
+  function render(state) {
+    const connected = state.connected && !!state.lastSeen;
+
+    // 배너
+    const banner = document.getElementById('status-banner');
+    const dot    = document.getElementById('status-dot');
+    banner.className = 'status-banner ' + (connected ? 'connected' : 'disconnected');
+    dot.className    = 'status-dot '    + (connected ? 'on' : 'off');
+    document.getElementById('status-label').textContent =
+      connected ? '모바일 앱 연결됨' : '연결 끊김 / 대기 중';
+
+    if (state.lastSeen) {
+      const sec = Math.round((Date.now() - new Date(state.lastSeen)) / 1000);
+      document.getElementById('status-detail').textContent =
+        connected ? `마지막 수신 ${sec}초 전 · userId: ${state.userId ?? '-'}`
+                  : `마지막 수신 ${sec}초 전 (30초 초과 → 비활성)`;
+    }
+
+    if (state.deviceInfo) {
+      const d = state.deviceInfo;
+      document.getElementById('status-device').innerHTML =
+        `${d.deviceModel ?? ''}<br>${d.appVersion ? 'v' + d.appVersion : ''} ${d.batteryLevel != null ? '🔋' + d.batteryLevel + '%' : ''}`;
+    }
+
+    // HRV
+    if (state.hrv) {
+      const h = state.hrv;
+      setText('val-hr',    h.heartRate    ?? '--');
+      setText('val-stress', h.stressIndex != null ? Math.round(h.stressIndex) : '--');
+      setText('val-sdnn',  h.hrvSdnn     != null ? Math.round(h.hrvSdnn)     : '--');
+
+      const stressEl = document.getElementById('val-stress');
+      stressEl.className = 'metric-value ' + stressClass(h.stressIndex);
+      setText('sub-hr',    new Date(h.recordedAt).toLocaleTimeString('ko-KR'));
+      setText('sub-stress', h.stressIndex != null ? stressLabel(h.stressIndex) : '낮을수록 좋음');
+      setText('sub-sdnn',  '높을수록 자율신경 안정');
+    }
+
+    // 세션
+    const sessionArea = document.getElementById('session-area');
+    if (state.session) {
+      const s = state.session;
+      const running = s.event === 'start';
+      sessionArea.innerHTML = `
+        <div class="session-subject">${s.subjectName ?? '과목 미지정'}</div>
+        <span class="session-badge ${running ? '' : 'stopped'}">
+          ${running ? '● 공부 중' : '■ 종료'}
+        </span>
+        ${s.durationSeconds ? `<div class="session-dur">시간: ${fmtSec(s.durationSeconds)}${s.pxEarned ? ' · +' + s.pxEarned + ' PX' : ''}</div>` : ''}
+      `;
+    }
+
+    // 이벤트 로그
+    const logList = document.getElementById('log-list');
+    if (!state.events || state.events.length === 0) {
+      logList.innerHTML = '<div class="empty-hint">이벤트 없음</div>';
+    } else {
+      logList.innerHTML = state.events.map(e => `
+        <div class="log-row">
+          <span class="log-type ${typeClass(e.type)}">${typeLabel(e.type)}</span>
+          <div class="log-body">
+            <div class="log-msg">${eventMsg(e)}</div>
+            <div class="log-time">${new Date(e.ts).toLocaleTimeString('ko-KR')}</div>
+          </div>
+        </div>
+      `).join('');
+    }
+  }
+
+  /* ── 유틸 ── */
+  function setText(id, v) {
+    const el = document.getElementById(id);
+    if (el) el.textContent = v;
+  }
+  function fmtSec(s) {
+    const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60;
+    if (h > 0) return `${h}시간 ${m}분`;
+    if (m > 0) return `${m}분 ${sec}초`;
+    return `${sec}초`;
+  }
+  function stressClass(v) {
+    if (v == null) return '';
+    if (v < 30) return 'stress-low';
+    if (v < 60) return 'stress-mid';
+    return 'stress-high';
+  }
+  function stressLabel(v) {
+    if (v < 30) return '😊 낮음 (안정)';
+    if (v < 60) return '😐 보통';
+    return '😰 높음 (주의)';
+  }
+  function typeClass(t) {
+    if (t === 'hrv') return 'hrv';
+    if (t.startsWith('session')) return 'session';
+    return 'heartbt';
+  }
+  function typeLabel(t) {
+    if (t === 'hrv') return 'HRV';
+    if (t === 'session_start') return '시작';
+    if (t === 'session_stop') return '종료';
+    return '기기';
+  }
+  function eventMsg(e) {
+    const p = e.payload ?? {};
+    if (e.type === 'hrv')
+      return `❤️ ${p.heartRate ?? '-'} BPM  스트레스 ${p.stressIndex != null ? Math.round(p.stressIndex) : '-'}  SDNN ${p.hrvSdnn != null ? Math.round(p.hrvSdnn) : '-'}ms`;
+    if (e.type === 'session_start')
+      return `▶ ${p.subjectName ?? '과목 미지정'} 공부 시작`;
+    if (e.type === 'session_stop')
+      return `■ ${p.subjectName ?? '과목 미지정'} 종료 — ${fmtSec(p.durationSeconds ?? 0)}`;
+    if (e.type === 'heartbeat')
+      return `📱 ${p.deviceModel ?? '기기'} ${p.batteryLevel != null ? '🔋' + p.batteryLevel + '%' : ''}`;
+    return JSON.stringify(p);
+  }
+
+  /* ── Socket.IO 실시간 연결 ── */
+  const socket = io({ transports: ['websocket', 'polling'] });
+
+  socket.on('connect', () => console.log('Socket.IO connected'));
+  socket.on('bridge-update', state => render(state));
+
+  /* ── 초기 로드 + 5초 폴링 (Socket.IO 보완) ── */
+  async function poll() {
+    try {
+      const res = await fetch('/api/bridge/latest');
+      if (res.ok) render(await res.json());
+    } catch {}
+  }
+  poll();
+  setInterval(poll, 5000);
+</script>
+</body>
+</html>
