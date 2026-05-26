@@ -17,60 +17,43 @@ struct RankingView: View {
 
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
-            // ── Left: Rankings list ────────────────────────────────────────
+            // ── Left: Rankings list ───────────────────────────────────────
             VStack(spacing: 0) {
-                // Segment picker
                 HStack {
-                    SPSegmentPicker(
-                        options: ["개인 랭킹", "그룹 랭킹"],
-                        selected: $selectedTab
-                    )
+                    SPSegmentPicker(options: ["개인 랭킹", "그룹 랭킹"], selected: $selectedTab)
                     Spacer()
+                    Button { Task { await loadRankings() } } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.system(size: 13, weight: .medium))
+                            .foregroundColor(Color.spMuted)
+                    }
+                    .buttonStyle(.plain)
                 }
                 .padding(.horizontal, 20)
                 .padding(.vertical, 14)
 
-                Divider()
+                Divider().background(Color.spBorder)
 
-                if isLoading {
-                    Spacer()
-                    ProgressView("불러오는 중...")
-                        .foregroundColor(.secondary)
-                    Spacer()
-                } else if let loadError {
-                    Spacer()
-                    VStack(spacing: 10) {
-                        Image(systemName: "exclamationmark.triangle")
-                            .font(.system(size: 28))
-                            .foregroundColor(.orange)
-                        Text("로드 실패")
-                            .font(.system(size: 14, weight: .semibold))
-                            .foregroundColor(Color.spInk)
-                        Text(loadError)
-                            .font(.system(size: 12))
-                            .foregroundColor(Color.spMuted)
-                            .multilineTextAlignment(.center)
-                        Button("다시 시도") { Task { await loadRankings() } }
-                            .buttonStyle(.plain)
-                            .font(.system(size: 12, weight: .semibold))
-                            .foregroundColor(.spGreen)
+                Group {
+                    if isLoading {
+                        loadingView
+                    } else if let loadError {
+                        errorView(loadError)
+                    } else if selectedTab == 0 {
+                        PersonalRankingListNew(rankings: personalRankings, myId: myRank?.id)
+                    } else {
+                        GroupRankingListNew(rankings: groupRankings)
                     }
-                    .padding(24)
-                    Spacer()
-                } else if selectedTab == 0 {
-                    PersonalRankingListNew(rankings: personalRankings, myId: myRank?.id)
-                } else {
-                    GroupRankingListNew(rankings: groupRankings)
                 }
             }
             .frame(maxWidth: .infinity)
-            .background(Color.spCard)
+            .background(Color.spBG)
 
-            Divider()
+            Divider().background(Color.spBorder)
 
-            // ── Right: My rank card ────────────────────────────────────────
+            // ── Right: My rank card ───────────────────────────────────────
             ScrollView {
-                VStack(spacing: 16) {
+                VStack(spacing: 14) {
                     if let myRank {
                         MyRankCardNew(rank: myRank)
                     } else {
@@ -89,31 +72,71 @@ struct RankingView: View {
         .task { await loadRankings() }
     }
 
+    // MARK: Loading / Error
+    private var loadingView: some View {
+        VStack {
+            Spacer()
+            ProgressView()
+                .scaleEffect(0.9)
+            Text("불러오는 중...")
+                .font(.system(size: 13))
+                .foregroundColor(Color.spMuted)
+                .padding(.top, 8)
+            Spacer()
+        }
+    }
+
+    private func errorView(_ msg: String) -> some View {
+        VStack(spacing: 12) {
+            Spacer()
+            Image(systemName: "wifi.slash")
+                .font(.system(size: 32))
+                .foregroundColor(Color.spMuted)
+            Text("불러오기 실패")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Color.spInk)
+            Text(msg)
+                .font(.system(size: 12))
+                .foregroundColor(Color.spMuted)
+                .multilineTextAlignment(.center)
+            Button {
+                Task { await loadRankings() }
+            } label: {
+                Text("다시 시도")
+                    .font(.system(size: 13, weight: .semibold))
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20)
+                    .padding(.vertical, 8)
+                    .background(Color.spGreen, in: Capsule())
+            }
+            .buttonStyle(.plain)
+            Spacer()
+        }
+        .padding(24)
+    }
+
+    // MARK: Load
     func loadRankings() async {
         isLoading = true
         loadError = nil
         var errors: [String] = []
 
-        // 개인 랭킹 — 독립 try-catch (실패해도 그룹 랭킹에 영향 없음)
         do {
             let p: PersonalRankingResponse = try await APIClient.shared.get("/api/rankings/personal")
             personalRankings = p.rankings
             myRank = p.myRank
         } catch {
-            let msg = error.localizedDescription
             print("⚠️ [Rankings] 개인 랭킹 로드 실패: \(error)")
-            errors.append("개인: \(msg)")
+            errors.append("개인: \(error.localizedDescription)")
         }
-        // 그룹 랭킹 — 독립 try-catch
+
         do {
             groupRankings = try await APIClient.shared.get("/api/rankings/groups")
         } catch {
-            let msg = error.localizedDescription
             print("⚠️ [Rankings] 그룹 랭킹 로드 실패: \(error)")
-            errors.append("그룹: \(msg)")
+            errors.append("그룹: \(error.localizedDescription)")
         }
 
-        // 둘 다 비어있고 에러가 있으면 표시
         if personalRankings.isEmpty && groupRankings.isEmpty && !errors.isEmpty {
             loadError = errors.joined(separator: "\n")
         }
@@ -127,13 +150,15 @@ struct SPSegmentPicker: View {
     @Binding var selected: Int
 
     var body: some View {
-        HStack(spacing: 4) {
+        HStack(spacing: 2) {
             ForEach(Array(options.enumerated()), id: \.offset) { i, title in
-                Button { withAnimation(.easeInOut(duration: 0.15)) { selected = i } } label: {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { selected = i }
+                } label: {
                     Text(title)
                         .font(.system(size: 13, weight: selected == i ? .semibold : .regular))
                         .foregroundColor(selected == i ? .spGreen : Color.spMuted)
-                        .padding(.horizontal, 16)
+                        .padding(.horizontal, 14)
                         .padding(.vertical, 7)
                         .background(
                             selected == i ? Color.spGreenLt : Color.clear,
@@ -143,8 +168,9 @@ struct SPSegmentPicker: View {
                 .buttonStyle(.plain)
             }
         }
-        .padding(4)
-        .background(Color.spBG, in: Capsule())
+        .padding(3)
+        .background(Color.spCard, in: Capsule())
+        .overlay(Capsule().stroke(Color.spBorder, lineWidth: 0.5))
     }
 }
 
@@ -155,21 +181,54 @@ struct PersonalRankingListNew: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 8) {
-                // Top 3 podium (if we have enough data)
-                if rankings.count >= 3 {
+            LazyVStack(spacing: 0) {
+                if rankings.isEmpty {
+                    emptyState
+                } else if rankings.count >= 3 {
+                    // 3명 이상이면 포디움 + 나머지 리스트
                     PodiumRow(rankings: Array(rankings.prefix(3)), myId: myId)
-                        .padding(.bottom, 8)
-                }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 20)
+                        .padding(.bottom, 12)
 
-                // Rest of rankings
-                let rest = rankings.count >= 3 ? Array(rankings.dropFirst(3)) : rankings
-                ForEach(rest) { ranking in
-                    PersonalRankRow(ranking: ranking, isMe: ranking.id == myId)
+                    Divider()
+                        .padding(.horizontal, 20)
+                        .padding(.bottom, 12)
+
+                    ForEach(Array(rankings.dropFirst(3))) { r in
+                        PersonalRankRow(ranking: r, isMe: r.id == myId)
+                            .padding(.horizontal, 20)
+                            .padding(.bottom, 8)
+                    }
+                    Spacer().frame(height: 12)
+                } else {
+                    // 1~2명: 심플 리스트
+                    ForEach(rankings) { r in
+                        PersonalRankRow(ranking: r, isMe: r.id == myId)
+                            .padding(.horizontal, 20)
+                            .padding(.top, r.id == rankings.first?.id ? 20 : 0)
+                            .padding(.bottom, 8)
+                    }
+                    Spacer().frame(height: 12)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            Spacer().frame(height: 60)
+            Image(systemName: "person.3")
+                .font(.system(size: 36))
+                .foregroundColor(Color.spBorder)
+            Text("아직 참가자가 없어요")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Color.spInk)
+            Text("오늘 공부를 시작하면\n랭킹에 등록됩니다")
+                .font(.system(size: 13))
+                .foregroundColor(Color.spMuted)
+                .multilineTextAlignment(.center)
+            Spacer()
         }
     }
 }
@@ -180,7 +239,7 @@ struct PodiumRow: View {
     let myId: Int?
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 12) {
+        HStack(alignment: .bottom, spacing: 8) {
             if rankings.count > 1 {
                 PodiumItem(ranking: rankings[1], isMe: rankings[1].id == myId)
                     .frame(maxWidth: .infinity)
@@ -194,15 +253,16 @@ struct PodiumRow: View {
                     .frame(maxWidth: .infinity)
             }
         }
-        .padding(20)
+        .padding(.horizontal, 8)
+        .padding(.vertical, 20)
         .background(
             LinearGradient(
-                colors: [Color.spGreen.opacity(0.06), Color.spBG.opacity(0.3)],
+                colors: [Color.spGreen.opacity(0.05), Color.spCard],
                 startPoint: .top, endPoint: .bottom
             ),
             in: RoundedRectangle(cornerRadius: 16)
         )
-        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.spBorder, lineWidth: 1))
+        .overlay(RoundedRectangle(cornerRadius: 16).stroke(Color.spBorder, lineWidth: 0.5))
     }
 }
 
@@ -213,34 +273,39 @@ struct PodiumItem: View {
 
     var medalColor: Color {
         switch ranking.rankPosition {
-        case 1: return Color(hex: "#FFD700")
-        case 2: return Color(hex: "#C0C0C0")
-        case 3: return Color(hex: "#CD7F32")
-        default: return .secondary
+        case 1: return Color(hex: "#F6A623")   // 따뜻한 골드
+        case 2: return Color(hex: "#9CA3AF")   // 실버 그레이
+        case 3: return Color(hex: "#B87333")   // 브론즈
+        default: return Color.spMuted
         }
     }
 
-    var pedestalHeight: CGFloat {
-        switch ranking.rankPosition {
-        case 1: return 48
-        case 2: return 32
-        case 3: return 20
-        default: return 20
-        }
-    }
+    var pedestalHeight: CGFloat { isFirst ? 52 : 32 }
+    var avatarSize:     CGFloat { isFirst ? 60 : 46 }
+    var fontSize:       CGFloat { isFirst ? 24 : 18 }
 
     var body: some View {
-        VStack(spacing: 6) {
-            // Avatar
+        VStack(spacing: 5) {
+            // 왕관 / 메달 아이콘
+            if ranking.rankPosition == 1 {
+                Image(systemName: "crown.fill")
+                    .font(.system(size: 14))
+                    .foregroundColor(medalColor)
+            } else {
+                Color.clear.frame(height: 16)
+            }
+
+            // 아바타
             ZStack {
                 Circle()
-                    .fill(isFirst ? Color(hex: "#FFD700").opacity(0.15) : Color.secondary.opacity(0.1))
-                    .frame(width: isFirst ? 56 : 44, height: isFirst ? 56 : 44)
+                    .fill(medalColor.opacity(0.12))
+                    .frame(width: avatarSize, height: avatarSize)
                     .overlay(Circle().stroke(medalColor, lineWidth: isFirst ? 2.5 : 1.5))
                 Text(String(ranking.name.prefix(1)))
-                    .font(.system(size: isFirst ? 22 : 17, weight: .bold))
+                    .font(.system(size: fontSize, weight: .bold))
                     .foregroundColor(medalColor)
             }
+            .scaleEffect(isMe ? 1.06 : 1.0)
 
             Text(ranking.name)
                 .font(.system(size: 12, weight: .semibold))
@@ -251,22 +316,21 @@ struct PodiumItem: View {
                 .font(.system(size: 11))
                 .foregroundColor(Color.spMuted)
 
-            // Pedestal
+            // 받침대
             ZStack {
-                RoundedRectangle(cornerRadius: 6)
-                    .fill(medalColor.opacity(0.15))
-                    .frame(height: pedestalHeight)
-                    .overlay(RoundedRectangle(cornerRadius: 6).stroke(medalColor.opacity(0.4), lineWidth: 1))
+                RoundedRectangle(cornerRadius: 8)
+                    .fill(medalColor.opacity(0.12))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(medalColor.opacity(0.35), lineWidth: 1))
                 Text("#\(ranking.rankPosition)")
-                    .font(.system(size: isFirst ? 16 : 13, weight: .bold))
+                    .font(.system(size: isFirst ? 15 : 12, weight: .bold))
                     .foregroundColor(medalColor)
             }
+            .frame(height: pedestalHeight)
         }
-        .scaleEffect(isMe ? 1.04 : 1.0)
     }
 
     func formatTime(_ s: Int) -> String {
-        if s < 60  { return "\(s)초" }
+        if s < 60   { return "\(s)초" }
         if s < 3600 { return "\(s / 60)분" }
         return String(format: "%d시간 %d분", s / 3600, (s % 3600) / 60)
     }
@@ -284,21 +348,25 @@ struct PersonalRankRow: View {
     }
 
     var body: some View {
-        HStack(spacing: 14) {
+        HStack(spacing: 12) {
+            // 순위 번호
             Text("\(ranking.rankPosition)")
-                .font(.system(size: 16, weight: .bold))
-                .foregroundColor(.secondary)
-                .frame(width: 28, alignment: .center)
+                .font(.system(size: 15, weight: .bold))
+                .foregroundColor(Color.spMuted)
+                .frame(width: 26, alignment: .center)
 
+            // 아바타
             ZStack {
                 Circle()
-                    .fill(isMe ? Color.spGreen.opacity(0.12) : Color.secondary.opacity(0.1))
-                    .frame(width: 40, height: 40)
+                    .fill(isMe ? Color.spGreen.opacity(0.12) : Color.spGreenLt)
+                    .frame(width: 38, height: 38)
+                    .overlay(Circle().stroke(isMe ? Color.spGreen.opacity(0.4) : Color.spBorder, lineWidth: 1))
                 Text(String(ranking.name.prefix(1)))
-                    .font(.system(size: 16, weight: .medium))
-                    .foregroundColor(isMe ? .spGreen : .secondary)
+                    .font(.system(size: 15, weight: .semibold))
+                    .foregroundColor(isMe ? Color.spGreen : Color.spInk)
             }
 
+            // 이름 + 레벨
             VStack(alignment: .leading, spacing: 2) {
                 HStack(spacing: 6) {
                     Text(ranking.name)
@@ -306,18 +374,21 @@ struct PersonalRankRow: View {
                         .foregroundColor(Color.spInk)
                     if isMe {
                         Text("나")
-                            .font(.system(size: 10, weight: .bold)).foregroundColor(.white)
-                            .padding(.horizontal, 5).padding(.vertical, 2)
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundColor(.white)
+                            .padding(.horizontal, 5)
+                            .padding(.vertical, 2)
                             .background(Color.spGreen, in: Capsule())
                     }
                 }
                 Text("Lv.\(ranking.level)")
-                    .font(.system(size: 12))
+                    .font(.system(size: 11))
                     .foregroundColor(Color.spMuted)
             }
 
             Spacer()
 
+            // PX + 공부시간
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(ranking.px) PX")
                     .font(.system(size: 13, weight: .semibold))
@@ -327,12 +398,13 @@ struct PersonalRankRow: View {
                     .foregroundColor(Color.spMuted)
             }
         }
-        .padding(12)
-        .background(isMe ? Color.spGreen.opacity(0.05) : Color.spCard)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(
             RoundedRectangle(cornerRadius: 12)
-                .stroke(isMe ? Color.spGreen.opacity(0.25) : Color.spBorder, lineWidth: 1)
+                .fill(isMe ? Color.spGreen.opacity(0.05) : Color.spCard)
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .stroke(isMe ? Color.spGreen.opacity(0.3) : Color.spBorder, lineWidth: 0.5))
         )
     }
 }
@@ -343,13 +415,36 @@ struct GroupRankingListNew: View {
 
     var body: some View {
         ScrollView {
-            LazyVStack(spacing: 8) {
-                ForEach(rankings) { ranking in
-                    GroupRankRow(ranking: ranking)
+            LazyVStack(spacing: 0) {
+                if rankings.isEmpty {
+                    emptyState
+                } else {
+                    ForEach(rankings) { r in
+                        GroupRankRow(ranking: r)
+                            .padding(.horizontal, 20)
+                            .padding(.top, r.id == rankings.first?.id ? 20 : 0)
+                            .padding(.bottom, 8)
+                    }
+                    Spacer().frame(height: 12)
                 }
             }
-            .padding(.horizontal, 20)
-            .padding(.vertical, 16)
+        }
+    }
+
+    private var emptyState: some View {
+        VStack(spacing: 10) {
+            Spacer().frame(height: 60)
+            Image(systemName: "person.3")
+                .font(.system(size: 36))
+                .foregroundColor(Color.spBorder)
+            Text("가입한 그룹이 없어요")
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Color.spInk)
+            Text("그룹 탭에서 그룹을 만들거나\n참여해보세요")
+                .font(.system(size: 13))
+                .foregroundColor(Color.spMuted)
+                .multilineTextAlignment(.center)
+            Spacer()
         }
     }
 }
@@ -359,53 +454,56 @@ struct GroupRankRow: View {
 
     var rankColor: Color {
         switch ranking.rankPosition {
-        case 1: return Color(hex: "#FFD700")
-        case 2: return Color(hex: "#C0C0C0")
-        case 3: return Color(hex: "#CD7F32")
-        default: return .secondary
+        case 1: return Color(hex: "#F6A623")
+        case 2: return Color(hex: "#9CA3AF")
+        case 3: return Color(hex: "#B87333")
+        default: return Color.spGreen
         }
     }
 
     var isTop3: Bool { ranking.rankPosition <= 3 }
 
     var body: some View {
-        HStack(spacing: 14) {
-            // Rank
-            if isTop3 {
-                Image(systemName: "medal.fill")
-                    .foregroundColor(rankColor)
-                    .font(.system(size: 17))
-                    .frame(width: 28, alignment: .center)
-            } else {
-                Text("\(ranking.rankPosition)")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.secondary)
-                    .frame(width: 28, alignment: .center)
+        HStack(spacing: 12) {
+            // 순위
+            Group {
+                if isTop3 {
+                    Image(systemName: "medal.fill")
+                        .foregroundColor(rankColor)
+                        .font(.system(size: 16))
+                } else {
+                    Text("\(ranking.rankPosition)")
+                        .font(.system(size: 15, weight: .bold))
+                        .foregroundColor(Color.spMuted)
+                }
             }
+            .frame(width: 26, alignment: .center)
 
-            // Group icon
+            // 그룹 아이콘
             ZStack {
                 RoundedRectangle(cornerRadius: 10)
-                    .fill(isTop3 ? rankColor.opacity(0.12) : Color.spGreen.opacity(0.08))
-                    .frame(width: 40, height: 40)
+                    .fill(isTop3 ? rankColor.opacity(0.10) : Color.spGreenLt)
+                    .frame(width: 38, height: 38)
                     .overlay(RoundedRectangle(cornerRadius: 10)
-                        .stroke(isTop3 ? rankColor.opacity(0.3) : Color.spBorder, lineWidth: 1))
+                        .stroke(isTop3 ? rankColor.opacity(0.3) : Color.spBorder, lineWidth: 0.5))
                 Image(systemName: ranking.icon.isEmpty ? "person.3.fill" : ranking.icon)
-                    .font(.system(size: 15))
-                    .foregroundColor(isTop3 ? rankColor : .spGreen)
+                    .font(.system(size: 14))
+                    .foregroundColor(isTop3 ? rankColor : Color.spGreen)
             }
 
+            // 그룹 이름 + 멤버 수
             VStack(alignment: .leading, spacing: 2) {
                 Text(ranking.name)
                     .font(.system(size: 14, weight: .semibold))
                     .foregroundColor(Color.spInk)
-                Text("\(ranking.memberCount)명")
-                    .font(.system(size: 12))
+                Text("멤버 \(ranking.memberCount)명")
+                    .font(.system(size: 11))
                     .foregroundColor(Color.spMuted)
             }
 
             Spacer()
 
+            // PX + 미션
             VStack(alignment: .trailing, spacing: 2) {
                 Text("\(ranking.totalPx) PX")
                     .font(.system(size: 13, weight: .semibold))
@@ -415,12 +513,14 @@ struct GroupRankRow: View {
                     .foregroundColor(Color.spMuted)
             }
         }
-        .padding(12)
-        .background(isTop3 ? rankColor.opacity(0.05) : Color.spCard)
-        .clipShape(RoundedRectangle(cornerRadius: 12))
-        .overlay(RoundedRectangle(cornerRadius: 12).stroke(
-            isTop3 ? rankColor.opacity(0.2) : Color.spBorder, lineWidth: 1
-        ))
+        .padding(.horizontal, 14)
+        .padding(.vertical, 11)
+        .background(
+            RoundedRectangle(cornerRadius: 12)
+                .fill(isTop3 ? rankColor.opacity(0.04) : Color.spCard)
+                .overlay(RoundedRectangle(cornerRadius: 12)
+                    .stroke(isTop3 ? rankColor.opacity(0.2) : Color.spBorder, lineWidth: 0.5))
+        )
     }
 }
 
@@ -430,10 +530,10 @@ struct MyRankCardNew: View {
 
     var rankColor: Color {
         switch rank.rankPosition {
-        case 1: return Color(hex: "#FFD700")
-        case 2: return Color(hex: "#C0C0C0")
-        case 3: return Color(hex: "#CD7F32")
-        default: return .spGreen
+        case 1: return Color(hex: "#F6A623")
+        case 2: return Color(hex: "#9CA3AF")
+        case 3: return Color(hex: "#B87333")
+        default: return Color.spGreen
         }
     }
 
@@ -444,47 +544,65 @@ struct MyRankCardNew: View {
     }
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("내 순위")
-                .font(.system(size: 16, weight: .semibold))
-                .frame(maxWidth: .infinity, alignment: .leading)
-
-            // Rank badge
-            VStack(spacing: 10) {
-                ZStack {
-                    Circle()
-                        .fill(rankColor.opacity(0.12))
-                        .frame(width: 72, height: 72)
-                    Text("#\(rank.rankPosition)")
-                        .font(.system(size: 26, weight: .bold))
+        VStack(spacing: 0) {
+            // 헤더
+            HStack {
+                Text("내 순위")
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundColor(Color.spInk)
+                Spacer()
+                if rank.rankPosition <= 3 {
+                    Image(systemName: "crown.fill")
+                        .font(.system(size: 13))
                         .foregroundColor(rankColor)
                 }
-
-                Text(rank.name)
-                    .font(.system(size: 17, weight: .bold))
-                    .foregroundColor(Color.spInk)
-
-                HStack(spacing: 4) {
-                    Image(systemName: "leaf.fill")
-                        .font(.system(size: 11))
-                        .foregroundColor(.spGreen)
-                    Text("Lv.\(rank.level)")
-                        .font(.system(size: 13))
-                        .foregroundColor(.secondary)
-                }
             }
-            .frame(maxWidth: .infinity)
+            .padding(.horizontal, 16)
+            .padding(.top, 16)
+            .padding(.bottom, 14)
 
-            Divider()
+            // 순위 배지
+            ZStack {
+                Circle()
+                    .fill(rankColor.opacity(0.10))
+                    .frame(width: 80, height: 80)
+                    .overlay(Circle().stroke(rankColor.opacity(0.3), lineWidth: 1.5))
+                Text("#\(rank.rankPosition)")
+                    .font(.system(size: 28, weight: .bold))
+                    .foregroundColor(rankColor)
+            }
 
-            // Stats
+            Text(rank.name)
+                .font(.system(size: 16, weight: .bold))
+                .foregroundColor(Color.spInk)
+                .padding(.top, 10)
+
+            HStack(spacing: 4) {
+                Image(systemName: "leaf.fill")
+                    .font(.system(size: 10))
+                    .foregroundColor(Color.spGreen)
+                Text("Lv.\(rank.level)")
+                    .font(.system(size: 12))
+                    .foregroundColor(Color.spMuted)
+            }
+            .padding(.top, 4)
+            .padding(.bottom, 16)
+
+            Divider().background(Color.spBorder).padding(.horizontal, 16)
+
             VStack(spacing: 0) {
-                RankStatRow(label: "총 PX", value: "\(rank.px) PX", color: .spGreen, icon: "bolt.fill")
-                Divider()
-                RankStatRow(label: "오늘 공부", value: formatTime(rank.totalStudyToday), color: .primary, icon: "timer")
+                RankStatRow(label: "총 PX", value: "\(rank.px) PX",
+                            color: Color.spGreen, icon: "bolt.fill")
+                Divider().background(Color.spBorder)
+                RankStatRow(label: "오늘 공부", value: formatTime(rank.totalStudyToday),
+                            color: Color.spInk, icon: "timer")
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
         }
-        .spCard()
+        .background(Color.spCard)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.spBorder, lineWidth: 0.5))
     }
 }
 
@@ -502,30 +620,43 @@ struct RankStatRow: View {
                     .foregroundColor(color)
                     .frame(width: 16)
             }
-            Text(label).font(.system(size: 13)).foregroundColor(.secondary)
+            Text(label)
+                .font(.system(size: 13))
+                .foregroundColor(Color.spMuted)
             Spacer()
-            Text(value).font(.system(size: 13, weight: .semibold)).foregroundColor(color)
+            Text(value)
+                .font(.system(size: 13, weight: .semibold))
+                .foregroundColor(color)
         }
-        .padding(.vertical, 9)
+        .padding(.vertical, 10)
     }
 }
 
+// MARK: - No Rank Card
 struct NoRankCard: View {
     var body: some View {
         VStack(spacing: 12) {
             ZStack {
-                Circle().fill(Color.secondary.opacity(0.08)).frame(width: 64, height: 64)
-                Image(systemName: "trophy").font(.system(size: 28)).foregroundColor(Color.secondary.opacity(0.3))
+                Circle()
+                    .fill(Color.spGreenLt)
+                    .frame(width: 68, height: 68)
+                Image(systemName: "trophy")
+                    .font(.system(size: 28))
+                    .foregroundColor(Color.spGreen.opacity(0.5))
             }
-            Text("순위 없음").font(.system(size: 16, weight: .semibold))
+            Text("순위 없음")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundColor(Color.spInk)
             Text("오늘 공부를 시작하면\n순위에 등록됩니다")
                 .font(.system(size: 13))
-                .foregroundColor(.secondary)
+                .foregroundColor(Color.spMuted)
                 .multilineTextAlignment(.center)
         }
         .frame(maxWidth: .infinity)
-        .padding(.vertical, 30)
-        .spCard()
+        .padding(.vertical, 28)
+        .background(Color.spCard)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.spBorder, lineWidth: 0.5))
     }
 }
 
@@ -541,49 +672,64 @@ struct RankingInfoCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 0) {
             Text("랭킹 정보")
-                .font(.system(size: 16, weight: .semibold))
+                .font(.system(size: 14, weight: .semibold))
+                .foregroundColor(Color.spInk)
+                .padding(.horizontal, 16)
+                .padding(.top, 16)
+                .padding(.bottom, 12)
+
+            Divider().background(Color.spBorder).padding(.horizontal, 16)
 
             VStack(spacing: 0) {
-                RankStatRow(label: "전체 참여자", value: "\(totalUsers)명", color: .primary, icon: "person.2")
-                Divider()
-                RankStatRow(label: "1위 공부시간", value: formatTime(topStudyTime), color: Color(hex: "#FFD700"), icon: "crown.fill")
+                RankStatRow(label: "전체 참여자",
+                            value: "\(totalUsers)명",
+                            color: Color.spInk,
+                            icon: "person.2")
+                Divider().background(Color.spBorder)
+                RankStatRow(label: "1위 공부시간",
+                            value: formatTime(topStudyTime),
+                            color: Color(hex: "#F6A623"),
+                            icon: "crown.fill")
             }
+            .padding(.horizontal, 16)
+            .padding(.bottom, 4)
         }
-        .spCard()
+        .background(Color.spCard)
+        .clipShape(RoundedRectangle(cornerRadius: 14))
+        .overlay(RoundedRectangle(cornerRadius: 14).stroke(Color.spBorder, lineWidth: 0.5))
     }
 }
 
-// MARK: - Legacy structs (kept for compile compatibility)
+// MARK: - Legacy aliases (compile compatibility)
 struct MyRankCard: View {
     let rank: PersonalRanking
     var body: some View { MyRankCardNew(rank: rank) }
 }
-
 struct PersonalRankingList: View {
     let rankings: [PersonalRanking]; let myId: Int?
     var body: some View { PersonalRankingListNew(rankings: rankings, myId: myId) }
 }
-
 struct GroupRankingList: View {
     let rankings: [GroupRanking]
     var body: some View { GroupRankingListNew(rankings: rankings) }
 }
-
 struct RankBadge: View {
     let position: Int
     var color: Color {
         switch position {
-        case 1: return .yellow; case 2: return Color(hex: "#C0C0C0"); case 3: return Color(hex: "#CD7F32")
-        default: return .secondary
+        case 1: return Color(hex: "#F6A623")
+        case 2: return Color(hex: "#9CA3AF")
+        case 3: return Color(hex: "#B87333")
+        default: return Color.spMuted
         }
     }
     var body: some View {
         if position <= 3 {
             Image(systemName: "medal.fill").foregroundColor(color).font(.title3).frame(width: 28)
         } else {
-            Text("\(position)").font(.subheadline.bold()).foregroundColor(.secondary).frame(width: 28)
+            Text("\(position)").font(.subheadline.bold()).foregroundColor(Color.spMuted).frame(width: 28)
         }
     }
 }
