@@ -77,18 +77,18 @@ router.post('/', auth, async (req, res) => {
 router.post('/join', auth, async (req, res) => {
   const { inviteCode } = req.body;
 
+  // 이미 다른 그룹에 가입된 경우 차단 (1그룹 제한)
+  const [myGroups] = await db.execute(
+    'SELECT COUNT(*) as cnt FROM group_members WHERE user_id = ?', [req.user.id]
+  );
+  if (myGroups[0].cnt > 0) return res.status(400).json({ error: '이미 그룹에 가입되어 있습니다. 현재 그룹을 탈퇴 후 참가하세요.' });
+
   const [groups] = await db.execute('SELECT * FROM `groups` WHERE invite_code = ?', [inviteCode]);
   if (!groups.length) return res.status(404).json({ error: '그룹을 찾을 수 없습니다.' });
 
   const group = groups[0];
   const [members] = await db.execute('SELECT COUNT(*) as cnt FROM group_members WHERE group_id = ?', [group.id]);
   if (members[0].cnt >= group.max_members) return res.status(400).json({ error: '그룹이 가득 찼습니다.' });
-
-  const [existing] = await db.execute(
-    'SELECT id FROM group_members WHERE group_id = ? AND user_id = ?',
-    [group.id, req.user.id]
-  );
-  if (existing.length) return res.status(400).json({ error: '이미 가입된 그룹입니다.' });
 
   await db.execute('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)', [group.id, req.user.id]);
   res.json({ success: true, group });
@@ -98,18 +98,18 @@ router.post('/join', auth, async (req, res) => {
 router.post('/:id/join', auth, async (req, res) => {
   const groupId = req.params.id;
 
+  // 이미 다른 그룹에 가입된 경우 차단 (1그룹 제한)
+  const [myGroups] = await db.execute(
+    'SELECT COUNT(*) as cnt FROM group_members WHERE user_id = ?', [req.user.id]
+  );
+  if (myGroups[0].cnt > 0) return res.status(400).json({ error: '이미 그룹에 가입되어 있습니다. 현재 그룹을 탈퇴 후 참가하세요.' });
+
   const [groups] = await db.execute('SELECT * FROM `groups` WHERE id = ?', [groupId]);
   if (!groups.length) return res.status(404).json({ error: '그룹 없음' });
 
   const group = groups[0];
   const [members] = await db.execute('SELECT COUNT(*) as cnt FROM group_members WHERE group_id = ?', [group.id]);
   if (members[0].cnt >= group.max_members) return res.status(400).json({ error: '그룹이 가득 찼습니다.' });
-
-  const [existing] = await db.execute(
-    'SELECT id FROM group_members WHERE group_id = ? AND user_id = ?',
-    [group.id, req.user.id]
-  );
-  if (existing.length) return res.status(400).json({ error: '이미 가입된 그룹입니다.' });
 
   await db.execute('INSERT INTO group_members (group_id, user_id) VALUES (?, ?)', [group.id, req.user.id]);
   res.json({ success: true });

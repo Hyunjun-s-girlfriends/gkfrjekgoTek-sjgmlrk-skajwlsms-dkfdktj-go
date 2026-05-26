@@ -77,6 +77,9 @@ class GroupViewModel: ObservableObject {
         } catch { errorMessage = error.localizedDescription }
     }
 
+    /// 이미 그룹에 가입된 상태인지 (1그룹 제한)
+    var isAlreadyInGroup: Bool { !myGroups.isEmpty }
+
     func search() async {
         guard !searchQuery.isEmpty else { searchResults = []; return }
         do {
@@ -114,26 +117,72 @@ class GroupViewModel: ObservableObject {
 // MARK: - GroupView (top-level router)
 struct GroupView: View {
     @StateObject private var vm = GroupViewModel()
+    @State private var mainTab = 0  // 0=내 그룹, 1=그룹 찾기
 
     var body: some View {
-        Group {
-            if vm.showCreateGroup {
-                CreateGroupView(vm: vm)
-                    .transition(.opacity)
-            } else if vm.myGroups.isEmpty {
-                GroupSearchView(vm: vm)
-            } else {
-                GroupLeaderboardView(vm: vm)
+        VStack(spacing: 0) {
+            // 상단 탭 (그룹이 있을 때만)
+            if !vm.showCreateGroup {
+                HStack(spacing: 0) {
+                    ForEach([("person.3.fill", "내 그룹", 0), ("magnifyingglass", "그룹 찾기", 1)],
+                            id: \.2) { icon, title, idx in
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { mainTab = idx }
+                        } label: {
+                            HStack(spacing: 5) {
+                                Image(systemName: icon)
+                                    .font(.system(size: 11))
+                                Text(title)
+                                    .font(.system(size: 13, weight: mainTab == idx ? .semibold : .regular))
+                            }
+                            .foregroundColor(mainTab == idx ? Color.spGreen : Color.spMuted)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .overlay(alignment: .bottom) {
+                                Rectangle()
+                                    .fill(mainTab == idx ? Color.spGreen : Color.clear)
+                                    .frame(height: 2)
+                            }
+                        }
+                        .buttonStyle(.plain)
+                    }
+                }
+                .background(Color.spCard)
+                Divider().background(Color.spBorder)
             }
+
+            // 콘텐츠
+            Group {
+                if vm.showCreateGroup {
+                    CreateGroupView(vm: vm)
+                        .transition(.opacity)
+                } else if mainTab == 0 {
+                    // 내 그룹 탭
+                    if vm.myGroups.isEmpty {
+                        noGroupPlaceholder
+                    } else {
+                        GroupLeaderboardView(vm: vm)
+                    }
+                } else {
+                    // 그룹 찾기 탭
+                    GroupSearchView(vm: vm)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .animation(.easeInOut(duration: 0.2), value: vm.showCreateGroup)
+        .animation(.easeInOut(duration: 0.15), value: mainTab)
         .task { await vm.load() }
+        .onChange(of: vm.myGroups.isEmpty) { isEmpty in
+            // 그룹 탈퇴 시 자동으로 "내 그룹" 탭 유지 (검색 탭으로 이동 안 함)
+        }
         .overlay(alignment: .bottom) {
             if let msg = vm.errorMessage {
                 Text(msg)
                     .font(.subheadline)
+                    .foregroundColor(Color.spInk)
                     .padding(.horizontal, 18).padding(.vertical, 11)
-                    .background(.thinMaterial, in: Capsule())
+                    .background(.regularMaterial, in: Capsule())
                     .padding(.bottom, 20)
                     .onAppear {
                         DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
@@ -144,13 +193,61 @@ struct GroupView: View {
         }
         .sheet(isPresented: $vm.showJoinByCode) { JoinByCodeSheet(vm: vm) }
     }
+
+    private var noGroupPlaceholder: some View {
+        VStack(spacing: 16) {
+            Spacer()
+            ZStack {
+                Circle().fill(Color.spGreenLt).frame(width: 80, height: 80)
+                Image(systemName: "person.3").font(.system(size: 32)).foregroundColor(Color.spGreen)
+            }
+            Text("아직 그룹이 없어요")
+                .font(.system(size: 18, weight: .bold))
+                .foregroundColor(Color.spInk)
+            Text("그룹에 참여하거나 새로 만들어보세요")
+                .font(.system(size: 14))
+                .foregroundColor(Color.spMuted)
+            HStack(spacing: 12) {
+                Button {
+                    withAnimation { mainTab = 1 }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "magnifyingglass").font(.system(size: 13))
+                        Text("그룹 찾기").font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundColor(Color.spGreen)
+                    .padding(.horizontal, 20).padding(.vertical, 10)
+                    .background(Color.spGreenLt, in: Capsule())
+                    .overlay(Capsule().stroke(Color.spGreen.opacity(0.3), lineWidth: 1))
+                }
+                .buttonStyle(.plain)
+
+                Button {
+                    vm.showCreateGroup = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus").font(.system(size: 13))
+                        Text("그룹 만들기").font(.system(size: 14, weight: .semibold))
+                    }
+                    .foregroundColor(.white)
+                    .padding(.horizontal, 20).padding(.vertical, 10)
+                    .background(Color.spGreen, in: Capsule())
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+        }
+        .frame(maxWidth: .infinity)
+        .background(Color.spBG)
+    }
 }
 
 // MARK: - Group Leaderboard View
 struct GroupLeaderboardView: View {
     @ObservedObject var vm: GroupViewModel
     @EnvironmentObject var auth: AuthManager
-    @State private var rightTab = 0   // 0=정보, 1=채팅
+    @State private var rightTab = 0              // 0=정보, 1=채팅
+    @State private var showLeaveConfirm = false  // 탈퇴 확인 알림
 
     var rankedMembers: [GroupMember] {
         vm.members.sorted { $0.todayStudySeconds > $1.todayStudySeconds }
@@ -172,25 +269,51 @@ struct GroupLeaderboardView: View {
                                 Button { Task { await vm.selectGroup(group) } } label: {
                                     Text(group.name)
                                         .font(.system(size: 13, weight: vm.selectedGroup?.id == group.id ? .semibold : .regular))
-                                        .foregroundColor(vm.selectedGroup?.id == group.id ? .white : .primary)
+                                        .foregroundColor(vm.selectedGroup?.id == group.id ? .white : Color.spInk)
                                         .padding(.horizontal, 14).padding(.vertical, 7)
                                         .background(
                                             vm.selectedGroup?.id == group.id ? Color.spGreen : Color.spBG,
                                             in: Capsule()
                                         )
+                                        .overlay(Capsule().stroke(
+                                            vm.selectedGroup?.id == group.id ? Color.clear : Color.spBorder,
+                                            lineWidth: 0.5
+                                        ))
                                 }
                                 .buttonStyle(.plain)
                             }
                         }
                         .padding(.horizontal, 20).padding(.vertical, 14)
                     }
-                    Button { vm.showCreateGroup = true } label: {
-                        Image(systemName: "plus.circle")
-                            .font(.system(size: 18))
-                            .foregroundColor(.secondary)
-                            .padding(.trailing, 20)
+                    // 탈퇴 버튼 (현재 선택된 그룹에서 나가기)
+                    Button {
+                        showLeaveConfirm = true
+                    } label: {
+                        HStack(spacing: 4) {
+                            Image(systemName: "rectangle.portrait.and.arrow.right")
+                                .font(.system(size: 13))
+                            Text("탈퇴")
+                                .font(.system(size: 12, weight: .medium))
+                        }
+                        .foregroundColor(Color.spMuted)
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 6)
+                        .background(Color.spBG, in: Capsule())
+                        .overlay(Capsule().stroke(Color.spBorder, lineWidth: 0.5))
                     }
                     .buttonStyle(.plain)
+                    .padding(.trailing, 16)
+                    .disabled(vm.selectedGroup == nil)
+                    .alert("그룹 탈퇴", isPresented: $showLeaveConfirm) {
+                        Button("탈퇴하기", role: .destructive) {
+                            if let g = vm.selectedGroup {
+                                Task { await vm.leaveGroup(g.id) }
+                            }
+                        }
+                        Button("취소", role: .cancel) {}
+                    } message: {
+                        Text("\(vm.selectedGroup?.name ?? "그룹")에서 탈퇴하시겠어요?\n채팅 내역이 삭제되며 되돌릴 수 없습니다.")
+                    }
                 }
 
                 Divider()
@@ -774,7 +897,9 @@ struct GroupSearchView: View {
                                 .font(.system(size: 13, weight: .semibold))
                                 .foregroundColor(Color.spInk)
 
-                            Button { vm.showCreateGroup = true } label: {
+                            Button {
+                                if !vm.isAlreadyInGroup { vm.showCreateGroup = true }
+                            } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: "plus")
                                         .font(.system(size: 13, weight: .semibold))
@@ -783,13 +908,16 @@ struct GroupSearchView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 12)
-                                .background(Color.spGreen)
+                                .background(vm.isAlreadyInGroup ? Color.spMuted.opacity(0.25) : Color.spGreen)
                                 .foregroundColor(.white)
                                 .clipShape(RoundedRectangle(cornerRadius: 9))
                             }
                             .buttonStyle(.plain)
+                            .disabled(vm.isAlreadyInGroup)
 
-                            Button { vm.showJoinByCode = true } label: {
+                            Button {
+                                if !vm.isAlreadyInGroup { vm.showJoinByCode = true }
+                            } label: {
                                 HStack(spacing: 8) {
                                     Image(systemName: "ticket")
                                         .font(.system(size: 13))
@@ -798,11 +926,18 @@ struct GroupSearchView: View {
                                 }
                                 .frame(maxWidth: .infinity)
                                 .padding(.vertical, 11)
-                                .foregroundColor(Color.spGreen)
-                                .background(Color.spGreenLt, in: RoundedRectangle(cornerRadius: 9))
-                                .overlay(RoundedRectangle(cornerRadius: 9).stroke(Color.spGreen.opacity(0.3), lineWidth: 1))
+                                .foregroundColor(vm.isAlreadyInGroup ? Color.spMuted : Color.spGreen)
+                                .background(
+                                    vm.isAlreadyInGroup ? Color.spBG : Color.spGreenLt,
+                                    in: RoundedRectangle(cornerRadius: 9)
+                                )
+                                .overlay(RoundedRectangle(cornerRadius: 9).stroke(
+                                    vm.isAlreadyInGroup ? Color.spBorder : Color.spGreen.opacity(0.3),
+                                    lineWidth: 1
+                                ))
                             }
                             .buttonStyle(.plain)
+                            .disabled(vm.isAlreadyInGroup)
                         }
                     }
                     .padding(24)
@@ -835,6 +970,24 @@ struct GroupSearchView: View {
 
                 Divider()
 
+                // 이미 그룹에 있으면 안내 배너
+                if vm.isAlreadyInGroup {
+                    HStack(spacing: 8) {
+                        Image(systemName: "info.circle.fill")
+                            .font(.system(size: 13))
+                            .foregroundColor(Color.orange)
+                        Text("이미 그룹에 가입되어 있어요. 탈퇴 후 새 그룹에 참가할 수 있습니다.")
+                            .font(.system(size: 12))
+                            .foregroundColor(Color.spInk)
+                    }
+                    .padding(.horizontal, 16)
+                    .padding(.vertical, 10)
+                    .background(Color.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 8))
+                    .overlay(RoundedRectangle(cornerRadius: 8).stroke(Color.orange.opacity(0.2), lineWidth: 1))
+                    .padding(.horizontal, 16)
+                    .padding(.top, 8)
+                }
+
                 if displayList.isEmpty {
                     VStack(spacing: 10) {
                         Image(systemName: "person.3")
@@ -849,7 +1002,7 @@ struct GroupSearchView: View {
                     ScrollView(showsIndicators: false) {
                         LazyVStack(spacing: 8) {
                             ForEach(Array(displayList.enumerated()), id: \.element.id) { i, group in
-                                GroupSearchRow(rank: i + 1, group: group) {
+                                GroupSearchRow(rank: i + 1, group: group, alreadyInGroup: vm.isAlreadyInGroup) {
                                     Task { await vm.joinGroup(id: group.id) }
                                 }
                             }
@@ -869,6 +1022,7 @@ struct GroupSearchRow: View {
     let rank: Int
     let group: StudyGroup
     let onJoin: () -> Void
+    var alreadyInGroup: Bool = false   // 이미 다른 그룹에 가입된 상태
     @State private var isHovered = false
 
     var rankColor: Color {
@@ -936,15 +1090,22 @@ struct GroupSearchRow: View {
             Button {
                 onJoin()
             } label: {
-                Text("참가")
+                Text(alreadyInGroup ? "가입불가" : "참가")
                     .font(.system(size: 12, weight: .semibold))
-                    .foregroundColor(.spGreen)
+                    .foregroundColor(alreadyInGroup ? Color.spMuted : .spGreen)
                     .padding(.horizontal, 12)
                     .padding(.vertical, 6)
-                    .background(Color.spGreenLt, in: RoundedRectangle(cornerRadius: 7))
-                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(Color.spGreen.opacity(0.3), lineWidth: 1))
+                    .background(
+                        alreadyInGroup ? Color.spBG : Color.spGreenLt,
+                        in: RoundedRectangle(cornerRadius: 7)
+                    )
+                    .overlay(RoundedRectangle(cornerRadius: 7).stroke(
+                        alreadyInGroup ? Color.spBorder : Color.spGreen.opacity(0.3),
+                        lineWidth: 1
+                    ))
             }
             .buttonStyle(.plain)
+            .disabled(alreadyInGroup)
         }
         .padding(.horizontal, 14)
         .padding(.vertical, 11)
